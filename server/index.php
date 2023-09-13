@@ -1,14 +1,18 @@
 <?php
 require 'vendor/autoload.php';
 
+header("Access-Control-Allow-Origin: http://localhost:3000");
+header("Access-Control-Allow-Methods: GET");
+header("Access-Control-Allow-Headers: Origin, Content-Type");
+
 use Google\Client;
 use Google\Service\Sheets;
 
 function setupClient(){
-        $client = new Google\Client();
-        $client->setAuthConfig('./credentials.json');
-        $client->addScope(Google_Service_Sheets::SPREADSHEETS_READONLY);
-        return $client;
+    $client = new Google\Client();
+    $client->setAuthConfig('./credentials.json');
+    $client->addScope(Google_Service_Sheets::SPREADSHEETS_READONLY);
+    return $client;
 }
 
 function getValuesFromCells($spreadsheetId, $range){
@@ -20,33 +24,32 @@ function getValuesFromCells($spreadsheetId, $range){
 }
 
 function extractBackgroundColor($spreadsheetId, $range, $response){
-        $client = setupClient();
-        $service = new Google\Service\Sheets($client);
-        $fields = $service->spreadsheets->get($spreadsheetId,[
-            'ranges' => $range,
-            'fields' => 'sheets.data.rowData.values.userEnteredFormat.backgroundColor',
-        ]);
+    $client = setupClient();
+    $service = new Google\Service\Sheets($client);
+    $fields = $service->spreadsheets->get($spreadsheetId,[
+        'ranges' => $range,
+        'fields' => 'sheets.data.rowData.values.userEnteredFormat.backgroundColor',
+    ]);
 
-                
-        $formattingData = $fields->getSheets()[0]['data'][0]['rowData'];
+    $formattingData = $fields->getSheets()[0]['data'][0]['rowData'];
 
-        $result = [];
+    $result = [];
 
-        // Iterate through the values and formatting data
-        foreach ($response as $index => $row) {
-            $cellValue = $row[0]; // Value in the cell
-            $backgroundColor = isset($formattingData[$index]['values'][0]['userEnteredFormat']['backgroundColor'])
-                ? $formattingData[$index]['values'][0]['userEnteredFormat']['backgroundColor']
-                : null;
+    // Iterate through the values and formatting data
+    foreach ($response as $index => $row) {
+        $cellValue = $row[0]; // Value in the cell
+        $backgroundColor = isset($formattingData[$index]['values'][0]['userEnteredFormat']['backgroundColor'])
+            ? $formattingData[$index]['values'][0]['userEnteredFormat']['backgroundColor']
+            : null;
 
-            // Store the cell value and background color in the result array
-            $result[] = [
-                'value' => $cellValue,
-                'backgroundColor' => $backgroundColor,
-            ];
-        }
+        // Store the cell value and background color in the result array
+        $result[] = [
+            'name' => $cellValue,
+            'backgroundColor' => $backgroundColor,
+        ];
+    }
 
-        return $result;
+    return $result;
 }
 
 function getValuesFromColumns($spreadsheetId, $range){
@@ -68,23 +71,23 @@ function getValuesFromColumns($spreadsheetId, $range){
 }
 
 function processInputValues($inputValues){
-      $userInputFields = [];
-        $sellerInputFields = [];
+    $userInputFields = [];
+    $sellerInputFields = [];
 
-        foreach ($inputValues as $row) {
-            if (!empty($row[0])) {
-                $sellerInputFields[] = $row[0];
-            }
-            
-            foreach ($row as $index => $value) {
-                if (!empty($value) && $index !== 0) {
-                    $userInputFields[] = $value;
-                }
+    foreach ($inputValues as $row) {
+        if (!empty($row[0])) {
+            $sellerInputFields[] = $row[0];
+        }
+        
+        foreach ($row as $index => $value) {
+            if (!empty($value) && $index !== 0) {
+                $userInputFields[] = $value;
             }
         }
+    }
 
-        $inputFields = ["sellerInputs" => $sellerInputFields, "userInputs" => $userInputFields];
-        return $inputFields;
+    $inputFields = ["sellerInputs" => $sellerInputFields, "userInputs" => $userInputFields];
+    return $inputFields;
 }
 
 function getValues($spreadsheetId, $range){   
@@ -95,30 +98,39 @@ function getValues($spreadsheetId, $range){
 
         $inputs = getValuesFromCells($spreadsheetId, $inputFieldRange);
         $productNames = getValuesFromColumns($spreadsheetId, $productNamesRange);
-
         $productNamesAndBgColors = extractBackgroundColor($spreadsheetId, $productNamesRange, $productNames);    
 
         $productPrices = getValuesFromColumns($spreadsheetId, $productPricesRange);
         $productWeeklyPayments = getValuesFromColumns($spreadsheetId, $productWeeklyPaymentsRange);
 
+        $productData = [];
+
+        foreach($productNames as $index => $value){
+            $newProduct = [
+                "name" => $productNamesAndBgColors[$index]["name"],
+                "bgColor" => $productNamesAndBgColors[$index]["backgroundColor"],
+                "totalPrice" => $productPrices[$index][0],
+                "weeklyPayment" => $productWeeklyPayments[$index][0],
+            ];
+            $productData[] = $newProduct;
+        }
 
         $inputValues = $inputs->getValues();
         $inputFields = processInputValues($inputValues);
 
         $finalResponse = json_encode([
             "inputs" => $inputFields,
-            "products" => $productNamesAndBgColors,
-            "productPrices" => $productPrices,
-            "productWeeklyPayments" => $productWeeklyPayments
+            "products" => $productData,
         ], true);
         
-        echo $finalResponse;
-        // try{
+        return $finalResponse;
+        // echo $finalResponse;
+        // // try{
 
-        // }
-        // catch(Exception $e) {
-        //     echo 'Message: ' .$e->getMessage();
-        // }
+        // // }
+        // // catch(Exception $e) {
+        // //     echo 'Message: ' .$e->getMessage();
+        // // }
     }
 
     echo getValues("1rGEFBZAAj06Dq_DFYCGRCPxaSogdC8UZNsROj_6AF0g", "Custom NEW");
