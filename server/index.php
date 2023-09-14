@@ -105,12 +105,17 @@ function getValues($spreadsheetId, $range){
 
         $productData = [];
 
-        foreach($productNames as $index => $value){
+        for($index = 0; $index < count($productNamesAndBgColors); $index++){
+            $cleanedTotalPrice = str_replace(['$', ','], '', $productPrices[$index][0]);
+            $totalPrice = (float)$cleanedTotalPrice;
+            $cleanedWeeklyPayment = str_replace(['$', ','], '', $productWeeklyPayments[$index][0]);
+            $weeklyPayment = (float)$cleanedWeeklyPayment;
+            
             $newProduct = [
                 "name" => $productNamesAndBgColors[$index]["name"],
                 "bgColor" => $productNamesAndBgColors[$index]["backgroundColor"],
-                "totalPrice" => $productPrices[$index][0],
-                "weeklyPayment" => $productWeeklyPayments[$index][0],
+                "totalPrice" => $totalPrice,
+                "weeklyPayment" => $weeklyPayment,
             ];
             $productData[] = $newProduct;
         }
@@ -119,19 +124,15 @@ function getValues($spreadsheetId, $range){
         $inputFields = processInputValues($inputValues);
 
         $finalResponse = json_encode([
+            "success" => true,
             "inputs" => $inputFields,
             "products" => $productData,
         ], true);
         
         return $finalResponse;
-        // echo $finalResponse;
-        // // try{
-
-        // // }
-        // // catch(Exception $e) {
-        // //     echo 'Message: ' .$e->getMessage();
-        // // }
     }
 
+    http_response_code(200);
+    header("Content-Type: application/json;");
     echo getValues("1rGEFBZAAj06Dq_DFYCGRCPxaSogdC8UZNsROj_6AF0g", "Custom NEW");
 ?>
